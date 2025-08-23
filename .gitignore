@@ -1,0 +1,6 @@
+.venv
+__pycache__
+.portia
+test.py 
+.env 
+t.py 
