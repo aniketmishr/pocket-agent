@@ -4,7 +4,7 @@ import logging
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-
+from openai import OpenAI
 from dotenv import load_dotenv
 from portia import (
     ActionClarification,
@@ -15,7 +15,22 @@ from portia import (
     PortiaToolRegistry,
     Config
 )
+
+from custom_tool import get_tool_registry
+
 load_dotenv()
+
+system_prompt = """
+You are an AI assistant with two response modes:
+
+1. Direct Response Mode (Simple Queries):
+- If the user query is straightforward, factual, or conversational, answer directly using your own knowledge.
+- Examples: greetings, trivia, factual lookups, simple definitions, short explanations.
+
+2. Agent Mode (Complex Queries):
+- If the user query requires multi-step reasoning, planning, or external tools (e.g., web search, database queries, calculations, document generation, scheduling, API calls), do not answer.
+- ONLY reply with: AGENT
+"""
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -29,7 +44,8 @@ TELEGRAM_USERNAME = os.getenv("TELEGRAM_USERNAME")
 class PocketAgent: 
     def __init__(self):
         self.portia_config = Config.from_default(default_model="google/gemini-2.5-flash", planning_model="openai/gpt-5-mini", execution_model = "google/gemini-2.5-flash")
-        self.portia = Portia(tools=PortiaToolRegistry(self.portia_config))
+        self.portia = Portia(tools=get_tool_registry(self.portia_config))
+        self.openai_client = OpenAI()
 
     async def start(self,update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
@@ -61,7 +77,18 @@ class PocketAgent:
         )
 
         try:
-            answer: str = self.run_portia_agent(query=text)
+            response = self.openai_client.chat.completions.create(
+                model="gpt-5-nano", 
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text}
+                ]
+            )
+            if (response.choices[0].message.content =="AGENT"): 
+                answer: str = self.run_portia_agent(query=text)
+            else : 
+                answer: str = response.choices[0].message.content
+
         except Exception as e:
             logger.exception("LLM call failed: %s", e)
             await update.message.reply_text(
