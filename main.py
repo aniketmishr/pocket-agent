@@ -19,7 +19,7 @@ from portia import (
 from portia.end_user import EndUser
 from portia.execution_hooks import ExecutionHooks, clarify_on_tool_calls
 from custom_tool import get_tool_registry
-
+from workflows import daily_news_plan, tech_digest_plan
 load_dotenv()
 
 system_prompt = """
@@ -48,7 +48,7 @@ class PocketAgent:
         self.portia_config = Config.from_default(default_model="google/gemini-2.5-flash", planning_model="openai/gpt-5-mini", execution_model = "google/gemini-2.5-flash")
         self.portia = Portia(
             config=self.portia_config,
-            tools=get_tool_registry(self.portia_config), 
+            tools=PortiaToolRegistry(self.portia_config), 
             execution_hooks=ExecutionHooks(
                 before_tool_call=clarify_on_tool_calls(
                     [
@@ -66,17 +66,23 @@ class PocketAgent:
     async def start(self,update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         self.chat_id = update.effective_chat.id
         await update.message.reply_text(
-            "Hey! I’m your PocketAgent.\n\n"
-            "• Send me any question and I’ll answer using Portia AI.\n"
-            "• Use /help for tips."
+            """
+👋 Hey there! I’m PocketAgent 🚀  
+
+✨ Got questions? I’ll solve them  
+🛠  Need a hand? I’ll act for you  
+⚡ Want ease? I’ll automate your life"""
         )
 
 
     async def help_cmd(self,update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        self.chat_id = update.effective_chat.id
         await update.message.reply_text(
-            "How to use me:\n"
-            "1) Type a question—general knowledge, code, math, etc.\n"
-            "2) Ask follow-ups naturally, I’ll keep context in your message.\n"
+"""
+🤖 How to use me:  
+1️⃣ Ask me any question or query — I’ll help you out  
+2️⃣ Need complex stuff done? I can take actions & reason it through  
+3️⃣ Want automation? Try our built-in workflows → type /workflow  """
         )
 
     async def ask(self, text:str, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -86,12 +92,6 @@ class PocketAgent:
             return 
         if not text:
             return
-        # print(-1)
-        # if self.pending_clarification and not self.pending_clarification.done(): 
-        #     print(-2)
-        #     self.pending_clarification.set_result(text)
-        #     print(-3)
-        #     return
 
         # Show "typing..." while we think
         await context.bot.send_chat_action(
@@ -114,13 +114,14 @@ class PocketAgent:
         except Exception as e:
             logger.exception("LLM call failed: %s", e)
             await update.message.reply_text(
-                "Oops — I couldn’t generate a reply right now. Please try again."
+                "Oops,I couldn’t generate a reply right now. Please try again later."
             )
             return
 
-        await update.message.reply_text(answer)
+        await update.message.reply_markdown(answer)
 
     async def unknown(self,update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        self.chat_id = update.effective_chat.id
         """
         Catches non-text messages (stickers, photos, etc.).
         """
@@ -129,14 +130,12 @@ class PocketAgent:
         )
 
     async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE): 
+        self.chat_id = update.effective_chat.id
         text = update.message.text.strip()
 
         # if there is a pending clarification, resolve it
-        print(-1)
         if self.pending_clarification and not self.pending_clarification.done(): 
-            print(-2)
             self.pending_clarification.set_result(text)
-            print(-3)
             return 
         
         asyncio.create_task(self.ask(text, update,context))
@@ -173,19 +172,14 @@ class PocketAgent:
 
                 # handle User Verification Clarification : Human in the loop
                 if isinstance(clarification, UserVerificationClarification) :
-                    print(0)
                     print(f"{clarification.user_guidance}")
                     await self.notify_user(self.chat_id,
                         # "Please enter a value:\n" +
                                f"{clarification.user_guidance}"   
-                                )  
-                    print(1)
+                                )
                     self.pending_clarification = asyncio.get_running_loop().create_future()
-                    print(2)
                     user_input = await self.pending_clarification
-                    print(3)
-                    plan_run = self.portia.resolve_clarification(clarification, user_input, plan_run)    
-                    print(4)
+                    plan_run = self.portia.resolve_clarification(clarification, user_input, plan_run)
         
                 # Handling of Action clarifications
                 if isinstance(clarification, ActionClarification):
@@ -203,6 +197,81 @@ class PocketAgent:
         print(f"{plan_run.model_dump_json(indent=2)}")
         print()
         return str(plan_run.outputs.final_output.value)
+    
+    async def run_portia_workflow(self, workflow_id:str) -> str : 
+
+        if workflow_id=="1" : 
+            workflow_plan = daily_news_plan
+        elif workflow_id=="2": 
+            workflow_plan = tech_digest_plan
+        else: 
+            workflow_plan = None 
+            return 
+
+        plan_run = await self.portia.arun_plan(workflow_plan)
+        while plan_run.state == PlanRunState.NEED_CLARIFICATION:
+            # If clarifications are needed, resolve them before resuming the plan run
+            for clarification in plan_run.get_outstanding_clarifications():
+                # Usual handling of Input and Multiple Choice clarifications
+                if isinstance(clarification, (InputClarification, MultipleChoiceClarification)):
+                    print(f"{clarification.user_guidance}")
+                    await self.notify_user(self.chat_id,
+                        "Please enter a value:\n" 
+                                    + (("\n".join(clarification.options) + "\n") if "options" in clarification else ""))
+                    # Create a Future and wait for it
+                    self.pending_clarification = asyncio.get_running_loop().create_future()
+                    user_input = await self.pending_clarification
+                    # self.pending_clarification = None   # TODO(Check if this is really required or not? )
+                    plan_run = self.portia.resolve_clarification(clarification, user_input, plan_run)
+
+                # handle User Verification Clarification : Human in the loop
+                if isinstance(clarification, UserVerificationClarification) :
+                    print(0)
+                    print(f"{clarification.user_guidance}")
+                    await self.notify_user(self.chat_id,
+                        # "Please enter a value:\n" +
+                               f"{clarification.user_guidance}"   
+                                )  
+                    self.pending_clarification = asyncio.get_running_loop().create_future()
+                    user_input = await self.pending_clarification
+                    plan_run = self.portia.resolve_clarification(clarification, user_input, plan_run)    
+        
+                # Handling of Action clarifications
+                if isinstance(clarification, ActionClarification):
+                    await self.notify_user(
+                        self.chat_id,
+                        f"{clarification.user_guidance} -- Please click on the link below to proceed.\n"
+                        f"[Click on this]({clarification.action_url})"
+                        )
+                    plan_run = self.portia.wait_for_ready(plan_run)
+
+            # Once clarifications are resolved, resume the plan run
+            plan_run = self.portia.resume(plan_run)
+
+        # Serialise into JSON and print the output
+        print(f"{plan_run.model_dump_json(indent=2)}")
+        print()
+        return str(plan_run.outputs.final_output.value)
+  
+    async def workflow(self,update: Update, context: ContextTypes.DEFAULT_TYPE) -> None: 
+        if context.args: # arguments after the command
+            workflow_id = context.args[0]
+            workflow_out = await self.run_portia_workflow(workflow_id)
+            await update.message.reply_markdown(f"{workflow_out}")
+        else :
+            await update.message.reply_html("""
+<b>⚡ What is /workflow?</b>
+Automate your boring <i>regular</i> stuff with just <b>one click</b>.  
+<b>🚀 How to use /workflow</b>  
+Type <code>/workflow &lt;workflow_id&gt;</code> to run your favorite workflow.  
+
+<b>✅ Currently supported workflows:</b>  
+🔹 <b>ID 1</b> → News Innovation Digest
+🔹 <b>ID 2</b> → Tech Innovation Digest  
+  
+
+<b>✨ More cool workflows coming soon... stay tuned!</b>
+                                            """)
 
 
     def run(self) -> None:
@@ -215,6 +284,9 @@ class PocketAgent:
 
         # Everything else (stickers / photos / etc.)
         self.app.add_handler(MessageHandler(~filters.TEXT, self.unknown))
+
+        # Workflow Handler : Execute any workflow
+        self.app.add_handler(CommandHandler("workflow", self.workflow))
 
         # Errors
         self.app.add_error_handler(self.error_handler)
