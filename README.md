@@ -1,6 +1,7 @@
 # Pocket Agent 🤖
 
-![Pocket Agent](assets/agent_pic.jpeg)
+<img src="assets/agent_pic.jpeg" alt="Pocket Agent Demo" width="400"/>
+
 
 ## What is Pocket Agent?
 
