@@ -1,4 +1,4 @@
-# Pocket Agent 🚀
+# Pocket Agent 🤖
 
 ## What is Pocket Agent?
 
