@@ -1,10 +1,18 @@
 # Pocket Agent 🤖
 
+![Pocket Agent](assets\agent_pic.jpeg)
+
 ## What is Pocket Agent?
 
 Pocket Agent is your **personal AI assistant in your pocket** – simple, accessible, and powerful. You can talk to it anytime, even from your mobile through Telegram. It can handle everything from simple queries to complex tasks, boring chores, and even multi-step workflows by connecting to your favorite tools.
 
 Unlike niche agents built for very specific use cases, Pocket Agent is designed for **everyone**. Whether you want quick information, tool integration, or daily workflows, it’s here to make life easier (as it should be!).
+
+---
+
+## Demo Video 🎥
+
+[![Pocket Agent Demo](https://img.youtube.com/vi/ZcSaIaX0p0o/0.jpg)](https://www.youtube.com/watch?v=ZcSaIaX0p0o)
 
 ---
 
