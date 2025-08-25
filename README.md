@@ -11,6 +11,16 @@ Unlike niche agents built for very specific use cases, Pocket Agent is designed 
 
 ---
 
+| Image 1 | Image 2 |
+|---------|---------|
+| ![img1](assets/img1.jpeg) | ![img2](assets/img2.jpeg) |
+
+| Image 3 | Image 4 |
+|---------|---------|
+| ![img3](assets/img3.jpeg) | ![img4](assets/img4.jpeg) |
+
+---
+
 ## Demo Video 🎥
 
 [![Pocket Agent Demo](https://img.youtube.com/vi/ZcSaIaX0p0o/0.jpg)](https://www.youtube.com/watch?v=ZcSaIaX0p0o)
