@@ -27,7 +27,7 @@ class ClarificationResponse(BaseModel):
     )
     choices: List[str] = Field(
         ...,
-        description="A list of possible choices or options explicitly mentioned in the clarification."
+        description= "List of distinct choices. Remove duplicates (e.g., keep 'yes' over 'y'). If only one choice is given, return both 'yes' and 'no'."
     )
 
 def get_structured_clarification(clarification_prompt:str, client:OpenAI) -> ClarificationResponse: 
@@ -40,10 +40,10 @@ def get_structured_clarification(clarification_prompt:str, client:OpenAI) -> Cla
     )
     return response.choices[0].message.parsed
 
-def build_inline_keyboard(clarification: ClarificationResponse) -> InlineKeyboardMarkup: 
+def build_inline_keyboard(choices: List[str]) -> InlineKeyboardMarkup: 
     keyboard = [
         [InlineKeyboardButton(choice, callback_data=choice)]
-        for choice in clarification.choices
+        for choice in choices
     ]
     return InlineKeyboardMarkup(keyboard)
 

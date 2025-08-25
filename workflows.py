@@ -1,17 +1,18 @@
 from portia import PlanBuilderV2, StepOutput, Input, PlanV2
 from pydantic import BaseModel
-
+from typing import List
 class WorkFlow(BaseModel): 
     plan: PlanV2
     description: str
+    args: List[str] | None = None
 
 workflow_1 = WorkFlow(
     plan = (
             PlanBuilderV2("Fetch trending news, create a concise summary of the news")
-            .invoke_tool_step(
-                tool ="portia:tavily::search",
-                args = {'search_query' : 'latest trending news'}, 
-                step_name = "search_news"
+            .single_tool_agent_step(
+                step_name="search_news",
+                tool = 'portia:tavily::search', 
+                task = "search the current trending news",
             )
             .llm_step(
                 task = """Summarize in simple the raw news data into a structured format:
@@ -22,7 +23,7 @@ workflow_1 = WorkFlow(
                 - Link: URL to the full article
                 
                 Format as a clean, readable list.
-                REPLY IN MARKDOWn
+                REPLY IN PLAIN TEXT
                 """,
                 inputs=[StepOutput("search_news")],
                 step_name="news_summary"
@@ -30,53 +31,28 @@ workflow_1 = WorkFlow(
             .build()
             ),
     
-    description= "Fetches current trending news, and report's the summary "
+    description= "Fetches current trending news, and report's the summary ", 
+    args = None
 )
 
 workflow_2 = WorkFlow(
-    plan = (
-            PlanBuilderV2("Research latest tech innovations and create an executive summary")
-            .invoke_tool_step(
-                tool="portia:tavily::search",
-                args={'search_query': 'latest technology innovations AI startups 2024'},
-                step_name="search_tech_news"
-            )
-            .llm_step(
-                task="""Filter and categorize the technology news into key areas:
-                
-                Organize the findings into these categories:
-                - AI & Machine Learning: Latest developments and breakthroughs
-                - Startups & Funding: New companies and investment rounds
-                - Product Launches: Major tech product announcements
-                - Industry Trends: Emerging patterns and market shifts
-                
-                For each category, list 2-3 most significant items with brief descriptions.""",
-                inputs=[StepOutput("search_tech_news")],
-                step_name="categorize_tech"
-            )
-            .invoke_tool_step(
-                tool="portia:tavily::search",
-                args={'search_query': 'technology market analysis trends impact business'},
-                step_name="search_market_impact"
-            )
-            .llm_step(
-                task="""Create an executive summary in combining tech innovations with market impact:
-                
-                Structure the final report as:
-                - Executive Overview: 2-3 sentence summary of key trends
-                - Innovation Highlights: Top 3 most impactful developments
-                - Business Implications: How these trends affect different industries
-                - Watch List: 2-3 technologies or companies to monitor
-                
-                Target audience: Business executives and tech decision makers.
-                Keep it strategic and actionable.
-                REPLY IN MARKDOWN
-                """,
-                inputs=[StepOutput("categorize_tech"), StepOutput("search_market_impact")],
-                step_name="executive_summary"
-            )
-            .build()
-        ), 
-    description="Research latest tech innovations and create an executive summary"
+    plan = (PlanBuilderV2("Email the current weather report of a city")
+    .input(name = "city")
+    .input(name="email_address")
+    .single_tool_agent_step(
+        step_name="weather_report",
+        tool = 'portia:tavily::search', 
+        task = "Summarise today's weather report of a city, in a friendly and humourous manner",
+        inputs=[Input('city')]
+    )
+    .single_tool_agent_step(
+        tool = 'portia:google:gmail:send_email', 
+        task = "mail the weather report, with subject Today's Weather report",
+        inputs=[Input('email_address'), StepOutput("weather_report")]
+    )
+    .build()
+    ),
+    description = "Mail the current weather report of a city" ,
+    args = ["city","email_address"]
 )
 
