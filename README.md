@@ -1,6 +1,6 @@
 # Pocket Agent 🤖
 
-![Pocket Agent](assets\agent_pic.jpeg)
+![Pocket Agent](assets/agent_pic.jpeg)
 
 ## What is Pocket Agent?
 
